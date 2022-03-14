@@ -19,7 +19,7 @@ func main() {
 		log.Fatalf("unable to load SDK config, %v", err)
 	}
 	cw := cloudwatch.NewFromConfig(cfg)
-	md, err := cw.GetMetricData(ctx, &cloudwatch.GetMetricDataInput{
+	params := &cloudwatch.GetMetricDataInput{
 		StartTime: aws.Time(time.Date(2022, time.March, 14, 11, 40, 0, 0, time.UTC)),
 		EndTime:   aws.Time(time.Date(2022, time.March, 14, 14, 00, 0, 0, time.UTC)),
 		MetricDataQueries: []types.MetricDataQuery{
@@ -47,13 +47,19 @@ func main() {
 			},
 		},
 		ScanBy: types.ScanByTimestampAscending,
-	})
-	if err != nil {
-		log.Fatalf("failed to get metrics: %v", err)
 	}
-	for _, m := range md.MetricDataResults {
-		for i := 0; i < len(m.Timestamps); i++ {
-			fmt.Printf("%v\t%v\n", m.Timestamps[i], m.Values[i])
+
+	paginator := cloudwatch.NewGetMetricDataPaginator(cw, params)
+	for paginator.HasMorePages() {
+		md, err := paginator.NextPage(ctx)
+		if err != nil {
+			log.Fatalf("failed to get metrics: %v", err)
+		}
+		for _, m := range md.MetricDataResults {
+			for i := 0; i < len(m.Timestamps); i++ {
+				fmt.Printf("%v\t%v\n", m.Timestamps[i], m.Values[i])
+			}
 		}
 	}
+
 }
