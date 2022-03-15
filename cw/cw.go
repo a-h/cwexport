@@ -12,12 +12,15 @@ import (
 )
 
 type Metric struct {
-	Namespace   string    `json:"ns"`
-	Name        string    `json:"name"`
-	ServiceName string    `json:"serviceName"`
-	ServiceType string    `json:"serviceType"`
-	StartTime   time.Time `json:"startTime"`
-	EndTime     time.Time `json:"endTime"`
+	Namespace   string `json:"ns"`
+	Name        string `json:"name"`
+	ServiceName string `json:"serviceName"`
+	ServiceType string `json:"serviceType"`
+}
+
+type Period struct {
+	Start time.Time `json:"start"`
+	End   time.Time `json:"end"`
 }
 
 type Sample struct {
@@ -25,7 +28,7 @@ type Sample struct {
 	Value float64   `json:"value"`
 }
 
-func GetMetrics(metric Metric) (samples []Sample, err error) {
+func GetMetrics(metric Metric, period Period) (samples []Sample, err error) {
 	ctx := context.Background()
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -35,8 +38,8 @@ func GetMetrics(metric Metric) (samples []Sample, err error) {
 
 	cw := cloudwatch.NewFromConfig(cfg)
 	params := &cloudwatch.GetMetricDataInput{
-		StartTime: aws.Time(metric.StartTime),
-		EndTime:   aws.Time(metric.EndTime),
+		StartTime: aws.Time(period.Start),
+		EndTime:   aws.Time(period.End),
 		MetricDataQueries: []types.MetricDataQuery{
 			{
 				Id: aws.String("a"),
