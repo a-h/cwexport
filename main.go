@@ -1,65 +1,33 @@
 package main
 
 import (
-	"context"
-	"fmt"
+	"encoding/json"
 	"log"
+	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
+	"github.com/a-h/cwexport/cw"
 )
 
 func main() {
-	ctx := context.Background()
-	cfg, err := config.LoadDefaultConfig(ctx)
+	m := cw.Metric{
+		Namespace:   "authApi",
+		Name:        "challengesStarted",
+		ServiceName: "auth-api-challengePostHandler92AD93BF-UH40AniBZd25",
+		ServiceType: "AWS::Lambda::Function",
+		StartTime:   time.Date(2022, time.March, 14, 16, 00, 0, 0, time.UTC),
+		EndTime:     time.Date(2022, time.March, 14, 17, 30, 0, 0, time.UTC),
+	}
+
+	metrics, err := cw.GetMetrics(m)
 	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
-	}
-	cw := cloudwatch.NewFromConfig(cfg)
-	params := &cloudwatch.GetMetricDataInput{
-		StartTime: aws.Time(time.Date(2022, time.March, 14, 11, 40, 0, 0, time.UTC)),
-		EndTime:   aws.Time(time.Date(2022, time.March, 14, 14, 00, 0, 0, time.UTC)),
-		MetricDataQueries: []types.MetricDataQuery{
-			{
-				Id: aws.String("a"),
-				MetricStat: &types.MetricStat{
-					Metric: &types.Metric{
-						MetricName: aws.String("challengesStarted"),
-						Namespace:  aws.String("authApi"),
-						Dimensions: []types.Dimension{
-							{
-								Name:  aws.String("ServiceName"),
-								Value: aws.String("auth-api-challengePostHandler92AD93BF-UH40AniBZd25"),
-							},
-							{
-								Name:  aws.String("ServiceType"),
-								Value: aws.String("AWS::Lambda::Function"),
-							},
-						},
-					},
-					Period: aws.Int32(60 * 5), // Seconds
-					Stat:   aws.String("Sum"),
-				},
-				ReturnData: aws.Bool(true),
-			},
-		},
-		ScanBy: types.ScanByTimestampAscending,
+		log.Fatal(err)
 	}
 
-	paginator := cloudwatch.NewGetMetricDataPaginator(cw, params)
-	for paginator.HasMorePages() {
-		md, err := paginator.NextPage(ctx)
-		if err != nil {
-			log.Fatalf("failed to get metrics: %v", err)
-		}
-		for _, m := range md.MetricDataResults {
-			for i := 0; i < len(m.Timestamps); i++ {
-				fmt.Printf("%v\t%v\n", m.Timestamps[i], m.Values[i])
-			}
-		}
+	e := json.NewEncoder(os.Stdout)
+	e.SetIndent("", " ")
+	err = e.Encode(metrics)
+	if err != nil {
+		log.Fatal(err)
 	}
-
 }
