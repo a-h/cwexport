@@ -25,6 +25,40 @@ type Sample struct {
 	Value float64   `json:"value"`
 }
 
+func CreateMetric(metric Metric, value float64) (err error) {
+	ctx := context.Background()
+	var cfg aws.Config
+
+	cfg, err = config.LoadDefaultConfig(ctx)
+	if err != nil {
+		err = fmt.Errorf("unable to load SDK config: %w", err)
+		return
+	}
+
+	cw := cloudwatch.NewFromConfig(cfg)
+	params := &cloudwatch.PutMetricDataInput{
+		Namespace: &metric.Namespace,
+		MetricData: []types.MetricDatum{
+			{
+				MetricName: &metric.Name,
+				Dimensions: []types.Dimension{
+					{
+						Name:  aws.String("ServiceName"),
+						Value: &metric.ServiceName,
+					},
+					{
+						Name:  aws.String("ServiceType"),
+						Value: &metric.ServiceType,
+					},
+				},
+				Value: &value,
+			},
+		},
+	}
+	cw.PutMetricData(ctx, params)
+	return
+}
+
 func GetMetrics(metric Metric) (samples []Sample, err error) {
 	ctx := context.Background()
 	cfg, err := config.LoadDefaultConfig(ctx)
