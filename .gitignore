@@ -1,2 +1,5 @@
 # Downloaded to run dynamodb locally
 dynamodb/
+
+# CDK output
+cdk.out/

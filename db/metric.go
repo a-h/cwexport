@@ -40,7 +40,6 @@ func NewMetricStore(tableName, region string, options ...OptionsFunc) (s *Metric
 type MetricStore struct {
 	db        *dynamodb.Client
 	tableName string
-	xray      bool
 }
 
 func getPartitionKey(m cw.Metric) string {
