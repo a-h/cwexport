@@ -23,6 +23,7 @@ type MetricSample struct {
 	cw.Sample `json:"sample"`
 }
 
+// New creates a new Process with all required fields populated.
 func New(logger *zap.Logger, firehose firehose.Firehose, store *db.MetricStore) (Processor, error) {
 	return Processor{
 		logger:   logger,

@@ -6,6 +6,8 @@ require (
 	github.com/aws/aws-cdk-go/awscdk/v2 v2.16.0
 	github.com/aws/aws-cdk-go/awscdkkinesisfirehosealpha/v2 v2.16.0-alpha.0
 	github.com/aws/aws-cdk-go/awscdkkinesisfirehosedestinationsalpha/v2 v2.16.0-alpha.0
+	github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2 v2.16.0-alpha.0
+	github.com/aws/aws-lambda-go v1.28.0
 	github.com/aws/aws-sdk-go-v2 v1.15.0
 	github.com/aws/aws-sdk-go-v2/config v1.15.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.10.0

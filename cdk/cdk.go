@@ -3,9 +3,12 @@ package main
 import (
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	firehose "github.com/aws/aws-cdk-go/awscdkkinesisfirehosealpha/v2"
 	destinations "github.com/aws/aws-cdk-go/awscdkkinesisfirehosedestinationsalpha/v2"
+	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -21,7 +24,6 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps) aw
 	}
 	stack := awscdk.NewStack(scope, &id, &sprops)
 
-	// Create a bucket to store the output metrics.
 	mob := awss3.NewBucket(stack, jsii.String("MetricOutput"), &awss3.BucketProps{
 		BlockPublicAccess: awss3.BlockPublicAccess_BLOCK_ALL(),
 		EnforceSSL:        jsii.Bool(true),
@@ -68,6 +70,26 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps) aw
 		ExportName: jsii.String("CWTableName"),
 		Value:      db.TableName(),
 	})
+
+	bundlingOptions := &awslambdago.BundlingOptions{
+		GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
+	}
+
+	f := awslambdago.NewGoFunction(stack, jsii.String("Processor"), &awslambdago.GoFunctionProps{
+		Environment: &map[string]*string{
+			"METRIC_TABLE_NAME":    db.TableName(),
+			"METRIC_FIREHOSE_NAME": fh.DeliveryStreamName(),
+		},
+		LogRetention: awslogs.RetentionDays_FIVE_MONTHS,
+		MemorySize:   jsii.Number(1024),
+		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
+		Tracing:      awslambda.Tracing_ACTIVE,
+		Entry:        jsii.String("../lambda/processor"),
+		Bundling:     bundlingOptions,
+		Runtime:      awslambda.Runtime_GO_1_X(),
+	})
+	db.GrantReadWriteData(f)
+	fh.GrantPutRecords(f)
 
 	return stack
 }
