@@ -1,8 +1,12 @@
 package main
 
 import (
+	"github.com/a-h/cwexport/cw"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
@@ -87,9 +91,32 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps) aw
 		Entry:        jsii.String("../lambda/processor"),
 		Bundling:     bundlingOptions,
 		Runtime:      awslambda.Runtime_GO_1_X(),
+		InitialPolicy: &[]awsiam.PolicyStatement{
+			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Actions:   jsii.Strings("cloudwatch:GetMetricData"),
+				Effect:    awsiam.Effect_ALLOW,
+				Resources: jsii.Strings("*"),
+			}),
+		},
 	})
 	db.GrantReadWriteData(f)
 	fh.GrantPutRecords(f)
+
+	m := cw.Metric{
+		Namespace:   "authApi",
+		Name:        "challengesStarted",
+		ServiceName: "auth-api-challengePostHandler92AD93BF-UH40AniBZd25",
+		ServiceType: "AWS::Lambda::Function",
+	}
+
+	awsevents.NewRule(stack, jsii.String("Scheduler"), &awsevents.RuleProps{
+		Schedule: awsevents.Schedule_Rate(awscdk.Duration_Minutes(jsii.Number(1))),
+		Targets: &[]awsevents.IRuleTarget{
+			awseventstargets.NewLambdaFunction(f, &awseventstargets.LambdaFunctionProps{
+				Event: awsevents.RuleTargetInput_FromObject(m),
+			}),
+		},
+	})
 
 	return stack
 }

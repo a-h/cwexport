@@ -2,35 +2,75 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"time"
 
-	"github.com/aws/aws-lambda-go/events"
+	"github.com/a-h/cwexport/cw"
+	"github.com/a-h/cwexport/db"
+	"github.com/a-h/cwexport/firehose"
+	"github.com/a-h/cwexport/processor"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"go.uber.org/zap"
 )
 
+var log *zap.Logger
+var proc processor.Processor
+
 func main() {
-	log, err := zap.NewProduction()
+	var err error
+	log, err = zap.NewProduction()
 	if err != nil {
 		panic(err)
 	}
+	defer log.Sync()
 
-	h := NewHandler(log)
-	lambda.Start(h.Handle)
-}
-
-func NewHandler(logger *zap.Logger) Handler {
-	return Handler{
-		logger: logger,
+	cfg, err := config.LoadDefaultConfig(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("failed to load aws config %w", err))
 	}
+
+	firehoseName := os.Getenv("METRIC_FIREHOSE_NAME")
+	if firehoseName == "" {
+		log.Fatal("Missing METRIC_FIREHOSE_NAME env variable")
+		return
+	}
+	fh, err := firehose.New(cfg, firehoseName)
+	if err != nil {
+		log.Fatal("Cannot create firehose", zap.Error(err))
+		return
+	}
+
+	tableName := os.Getenv("METRIC_TABLE_NAME")
+	if tableName == "" {
+		log.Fatal("Missing METRIC_TABLE_NAME env variable")
+		return
+	}
+	store, err := db.NewMetricStore(tableName, cfg.Region)
+	if err != nil {
+		log.Fatal("Cannot create store", zap.Error(err))
+		return
+	}
+
+	proc, err = processor.New(log, fh, store)
+	if err != nil {
+		log.Error("Failed to create new processor", zap.Error(err))
+		return
+	}
+
+	lambda.Start(Handle)
 }
 
-type Handler struct {
-	logger *zap.Logger
-}
+func Handle(ctx context.Context, event cw.Metric) (err error) {
+	log.Info("Received event", zap.Any("event", event))
 
-func (h Handler) Handle(ctx context.Context, event events.CloudWatchEvent) (err error) {
-	h.logger.Info("Received event", zap.Any("event", event))
-	//TODO: Create a processor, possibly using dependenices of the handler.
-	//TODO: Call the process method.
+	start := time.Date(2022, time.March, 15, 9, 00, 0, 0, time.UTC)
+
+	err = proc.Process(ctx, start, event)
+	if err != nil {
+		log.Error("An error occured during processing", zap.Error(err))
+		return
+	}
 	return nil
 }

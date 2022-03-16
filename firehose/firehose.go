@@ -14,7 +14,7 @@ type Firehose struct {
 	FirehoseClient     *awsfirehose.Client
 }
 
-func New(deliveryStreamName string, config aws.Config) (fh Firehose, err error) {
+func New(config aws.Config, deliveryStreamName string) (fh Firehose, err error) {
 	return Firehose{
 		DeliveryStreamName: deliveryStreamName,
 		FirehoseClient:     awsfirehose.NewFromConfig(config),
