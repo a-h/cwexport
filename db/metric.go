@@ -2,12 +2,13 @@ package db
 
 import (
 	"context"
-	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
-	"github.com/a-h/cwexport/cw"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	cw "github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
@@ -42,8 +43,22 @@ type MetricStore struct {
 	tableName string
 }
 
-func getPartitionKey(m cw.Metric) string {
-	return fmt.Sprintf("%s/%s/%s/%s", m.Namespace, m.Name, m.ServiceName, m.ServiceType)
+func getPartitionKey(m *cw.MetricStat) string {
+	var sb strings.Builder
+	sb.WriteString(*m.Metric.Namespace)
+	sb.WriteRune('/')
+	for _, d := range m.Metric.Dimensions {
+		sb.WriteString(*d.Name)
+		sb.WriteRune('/')
+		sb.WriteString(*d.Value)
+		sb.WriteRune('/')
+	}
+	sb.WriteString(*m.Metric.MetricName)
+	sb.WriteRune('/')
+	sb.WriteString(*m.Stat)
+	sb.WriteRune('/')
+	sb.WriteString(strconv.FormatInt(int64(*m.Period), 10))
+	return sb.String()
 }
 
 func getSortKeyPosition() string {
@@ -54,7 +69,7 @@ func getSortKeyPosition() string {
 // ns/logins/sum   position          2022-04-01T13:13:35.000Z
 // ns/logins/sum   user                                           adrian   a@example.com
 
-func (ms MetricStore) Get(ctx context.Context, m cw.Metric) (lastStart time.Time, ok bool, err error) {
+func (ms MetricStore) Get(ctx context.Context, m *cw.MetricStat) (lastStart time.Time, ok bool, err error) {
 	gio, err := ms.db.GetItem(ctx, &dynamodb.GetItemInput{
 		Key: map[string]types.AttributeValue{
 			"_pk": &types.AttributeValueMemberS{
@@ -85,7 +100,7 @@ func (ms MetricStore) Get(ctx context.Context, m cw.Metric) (lastStart time.Time
 	return
 }
 
-func (ms MetricStore) Put(ctx context.Context, m cw.Metric, lastStart time.Time) error {
+func (ms MetricStore) Put(ctx context.Context, m *cw.MetricStat, lastStart time.Time) error {
 	_, err := ms.db.PutItem(ctx, &dynamodb.PutItemInput{
 		Item: map[string]types.AttributeValue{
 			"_pk": &types.AttributeValueMemberS{

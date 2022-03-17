@@ -6,12 +6,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/a-h/cwexport/cw"
 	"github.com/a-h/cwexport/db"
 	"github.com/a-h/cwexport/firehose"
 	"github.com/a-h/cwexport/processor"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"go.uber.org/zap"
 )
 
@@ -62,12 +62,12 @@ func main() {
 	lambda.Start(Handle)
 }
 
-func Handle(ctx context.Context, event cw.Metric) (err error) {
+func Handle(ctx context.Context, event types.MetricStat) (err error) {
 	log.Info("Received event", zap.Any("event", event))
 
 	start := time.Date(2022, time.March, 15, 9, 00, 0, 0, time.UTC)
 
-	err = proc.Process(ctx, start, event)
+	err = proc.Process(ctx, start, &event)
 	if err != nil {
 		log.Error("An error occured during processing", zap.Error(err))
 		return

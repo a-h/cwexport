@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/a-h/cwexport/cw"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
@@ -13,6 +12,8 @@ import (
 	firehose "github.com/aws/aws-cdk-go/awscdkkinesisfirehosealpha/v2"
 	destinations "github.com/aws/aws-cdk-go/awscdkkinesisfirehosedestinationsalpha/v2"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	cw "github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -102,11 +103,23 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps) aw
 	db.GrantReadWriteData(f)
 	fh.GrantPutRecords(f)
 
-	m := cw.Metric{
-		Namespace:   "authApi",
-		Name:        "challengesStarted",
-		ServiceName: "auth-api-challengePostHandler92AD93BF-UH40AniBZd25",
-		ServiceType: "AWS::Lambda::Function",
+	m := &cw.MetricStat{
+		Metric: &cw.Metric{
+			Namespace:  aws.String("authApi"),
+			MetricName: aws.String("challengesStarted"),
+			Dimensions: []cw.Dimension{
+				{
+					Name:  aws.String("ServiceName"),
+					Value: aws.String("auth-api-challengePostHandler92AD93BF-UH40AniBZd25"),
+				},
+				{
+					Name:  aws.String("ServiceType"),
+					Value: aws.String("AWS::Lambda::Function"),
+				},
+			},
+		},
+		Period: aws.Int32(5),
+		Stat:   aws.String("Sum"),
 	}
 
 	awsevents.NewRule(stack, jsii.String("Scheduler"), &awsevents.RuleProps{
