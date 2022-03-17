@@ -1,74 +1,159 @@
 package main
 
 import (
-	"context"
+	"flag"
 	"fmt"
+	"os"
+	"runtime/debug"
+	"strings"
 	"time"
 
-	"github.com/a-h/cwexport/db"
-	"github.com/a-h/cwexport/firehose"
-	"github.com/a-h/cwexport/processor"
+	"github.com/a-h/cwexport/deploycmd"
+	"github.com/a-h/cwexport/localcmd"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
+// Binary builds set this version string. goreleaser sets the value using Go build ldflags.
+var version string
+
+// Source builds use this value. When installed using `go install github.com/a-h/templ/cmd/templ@latest` the `version` variable is empty, but
+// the debug.ReadBuildInfo return value provides the package version number installed by `go install`
+func goInstallVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown"
+	}
+	return info.Main.Version
+}
+
+func getVersion() string {
+	if version != "" {
+		return version
+	}
+	return goInstallVersion()
+}
+
 func main() {
-	zc := zap.NewProductionConfig()
-	zc.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
-	logger, _ := zc.Build()
-	defer logger.Sync()
-
-	ctx := context.Background()
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		panic(fmt.Errorf("failed to load test aws config %w", err))
+	if len(os.Args) < 2 {
+		usage()
+		os.Exit(1)
 	}
+	switch os.Args[1] {
+	case "local":
+		localCmd(os.Args[2:])
+		return
+	case "deploy":
+		deployCmd(os.Args[2:])
+		return
+	case "version":
+		fmt.Println(getVersion())
+		return
+	case "--version":
+		fmt.Println(getVersion())
+		return
+	}
+	usage()
+}
 
-	fh, err := firehose.New(cfg, "cwexport-MetricDeliveryStreamA287D02E-oK0s7aoP5Bi1")
-	if err != nil {
-		logger.Fatal("Cannot create firehose", zap.Error(err))
+func usage() {
+	fmt.Println(`usage: cwexport <command> [parameters]
+To see help text, you can run:
+  cwexport local --help
+  cwexport deploy --help
+  cwexport version
+examples:
+  cwexport local -from=2022-01-01T12:00:00Z -ns=test -name=challengesStarted -stat=Sum
+  cwexport deploy`)
+	os.Exit(1)
+}
+
+type arrayFlags []string
+
+func (i *arrayFlags) String() string {
+	return "my string representation"
+}
+
+func (i *arrayFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
+func localCmd(args []string) {
+	cmd := flag.NewFlagSet("local", flag.ExitOnError)
+	from := cmd.String("from", "", "The time to start exporting.")
+	namespace := cmd.String("ns", "", "The namespace of the metric.")
+	name := cmd.String("name", "", "The name of the metric.")
+	stat := cmd.String("stat", "Sum", "The stat to use, e.g. Sum or Average.")
+	var dimensions arrayFlags
+	cmd.Var(&dimensions, "dimension", "Dimension as key value, e.g. ServiceName/123")
+	helpFlag := cmd.Bool("help", false, "Print help and exit.")
+	err := cmd.Parse(args)
+	if err != nil || *helpFlag {
+		cmd.PrintDefaults()
 		return
 	}
 
-	store, err := db.NewMetricStore("cwexport-CWExportMetricTable116C3288-14FQXYEUTR25R", cfg.Region)
-	if err != nil {
-		logger.Fatal("Cannot create store", zap.Error(err))
-		return
+	var messages []string
+	var cmdArgs localcmd.Args
+
+	if cmdArgs.Start, err = time.Parse(time.RFC3339, *from); err != nil {
+		messages = append(messages, "Missing or invalid 'from' date parameter")
+
+	}
+	if *namespace == "" {
+		messages = append(messages, "Missing 'ns' string parameter")
+	}
+	if *name == "" {
+		messages = append(messages, "Missing 'name' string parameter")
+	}
+	dims := make([]types.Dimension, len(dimensions))
+	for i := 0; i < len(dimensions); i++ {
+		v := strings.SplitN(dimensions[i], "/", 2)
+		if len(v) != 2 {
+			messages = append(messages, fmt.Sprintf("Invalid dimension %q", dimensions[i]))
+			continue
+		}
+		dims[i] = types.Dimension{
+			Name:  &v[0],
+			Value: &v[1],
+		}
+	}
+	if len(messages) > 0 {
+		fmt.Println("Errors:")
+		for _, m := range messages {
+			fmt.Printf("  %s\n", m)
+		}
 	}
 
-	m := &types.MetricStat{
+	cmdArgs.MetricStat = &types.MetricStat{
 		Metric: &types.Metric{
-			Namespace:  aws.String("authApi"),
-			MetricName: aws.String("challengesStarted"),
-			Dimensions: []types.Dimension{
-				{
-					Name:  aws.String("ServiceName"),
-					Value: aws.String("auth-api-challengePostHandler92AD93BF-UH40AniBZd25"),
-				},
-				{
-					Name:  aws.String("ServiceType"),
-					Value: aws.String("AWS::Lambda::Function"),
-				},
-			},
+			Dimensions: dims,
+			MetricName: name,
+			Namespace:  namespace,
 		},
-		Period: aws.Int32(5),
-		Stat:   aws.String("Sum"),
+		Period: aws.Int32(int32((5 * time.Minute).Seconds())),
+		Stat:   stat,
 	}
 
-	start := time.Date(2022, time.March, 15, 9, 00, 0, 0, time.UTC)
-
-	p, err := processor.New(logger, fh, store)
+	err = localcmd.Run(cmdArgs)
 	if err != nil {
-		logger.Error("Failed to create new processor", zap.Error(err))
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
+func deployCmd(args []string) {
+	cmd := flag.NewFlagSet("deploy", flag.ExitOnError)
+	helpFlag := cmd.Bool("help", false, "Print help and exit.")
+	err := cmd.Parse(args)
+	if err != nil || *helpFlag {
+		cmd.PrintDefaults()
 		return
 	}
-
-	err = p.Process(ctx, start, m)
+	err = deploycmd.Run()
 	if err != nil {
-		logger.Error("An error occured during processing", zap.Error(err))
-		return
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 }

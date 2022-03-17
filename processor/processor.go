@@ -5,18 +5,23 @@ import (
 	"time"
 
 	"github.com/a-h/cwexport/cw"
-	"github.com/a-h/cwexport/db"
-	"github.com/a-h/cwexport/firehose"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"go.uber.org/zap"
 )
 
 const interval = time.Minute * 5
 
+type MetricPutter func(ctx context.Context, ms []MetricSample) error
+
+type MetricStore interface {
+	Get(ctx context.Context, m *types.MetricStat) (lastStart time.Time, ok bool, err error)
+	Put(ctx context.Context, m *types.MetricStat, lastStart time.Time) (err error)
+}
+
 type Processor struct {
-	logger   *zap.Logger
-	firehose firehose.Firehose
-	store    *db.MetricStore
+	logger     *zap.Logger
+	putMetrics MetricPutter
+	store      MetricStore
 }
 
 type MetricSample struct {
@@ -24,12 +29,11 @@ type MetricSample struct {
 	cw.Sample `json:"sample"`
 }
 
-// New creates a new Process with all required fields populated.
-func New(logger *zap.Logger, firehose firehose.Firehose, store *db.MetricStore) (Processor, error) {
+func New(logger *zap.Logger, store MetricStore, putter MetricPutter) (Processor, error) {
 	return Processor{
-		logger:   logger,
-		firehose: firehose,
-		store:    store,
+		logger:     logger,
+		putMetrics: putter,
+		store:      store,
 	}, nil
 }
 
@@ -71,7 +75,7 @@ func (p Processor) Process(ctx context.Context, start time.Time, metric *types.M
 		logger.Info("Got metrics for period", zap.Int("metricCount", len(samples)))
 
 		logger.Info("Sending metrics to Firehose")
-		var metricSamples []interface{}
+		var metricSamples []MetricSample
 		for _, s := range samples {
 			metricSamples = append(metricSamples, MetricSample{
 				MetricStat: metric,
@@ -79,7 +83,7 @@ func (p Processor) Process(ctx context.Context, start time.Time, metric *types.M
 			})
 		}
 
-		err = p.firehose.Put(ctx, metricSamples)
+		err = p.putMetrics(ctx, metricSamples)
 		if err != nil {
 			logger.Error("Failed to send data to firehose", zap.Error(err))
 			return err

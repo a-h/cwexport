@@ -1,4 +1,4 @@
-package main
+package cdk
 
 import (
 	"github.com/aws/aws-cdk-go/awscdk/v2"
@@ -134,8 +134,3 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps) aw
 	return stack
 }
 
-func main() {
-	app := awscdk.NewApp(nil)
-	NewCDKStack(app, "cwexport", &CDKStackProps{})
-	app.Synth(nil)
-}

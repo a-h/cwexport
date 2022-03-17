@@ -3,3 +3,6 @@ dynamodb/
 
 # CDK output
 cdk.out/
+
+# Binary
+cwexport
