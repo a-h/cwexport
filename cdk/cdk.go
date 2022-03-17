@@ -1,8 +1,6 @@
 package cdk
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
@@ -96,7 +94,6 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps, ms
 	db.GrantReadWriteData(f)
 	fh.GrantPutRecords(f)
 
-	fmt.Printf("%+v", *ms)
 	awsevents.NewRule(stack, jsii.String("Scheduler"), &awsevents.RuleProps{
 		Schedule: awsevents.Schedule_Rate(awscdk.Duration_Minutes(jsii.Number(5))),
 		Targets: &[]awsevents.IRuleTarget{
