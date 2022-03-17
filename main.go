@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"time"
 
-	"github.com/a-h/cwexport/cw"
+	"github.com/BurntSushi/toml"
 	"github.com/a-h/cwexport/db"
+	"github.com/a-h/cwexport/deploycmd"
 	"github.com/a-h/cwexport/firehose"
 	"github.com/a-h/cwexport/processor"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -54,6 +58,49 @@ func main() {
 	}
 
 	err = p.Process(ctx, start, m)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
+func deployCmd(args []string) {
+	cmd := flag.NewFlagSet("deploy", flag.ExitOnError)
+	helpFlag := cmd.Bool("help", false, "Print help and exit.")
+	configFlag := cmd.String("config", "", "Config file")
+
+	var messages []string
+
+	err := cmd.Parse(args)
+	if err != nil || *helpFlag {
+		cmd.PrintDefaults()
+		return
+	}
+
+	if *configFlag == "" {
+		messages = append(messages, "Missing config file")
+	}
+
+	confData, err := ioutil.ReadFile(*configFlag)
+	if err != nil {
+		messages = append(messages, "Unable to read config")
+	}
+
+	var ms cw.MetricStat
+	_, err = toml.Decode(string(confData), &ms)
+	if err != nil {
+		messages = append(messages, "Unable to parse config file")
+	}
+
+	if len(messages) > 0 {
+		fmt.Println("Errors:")
+		for _, m := range messages {
+			fmt.Printf("  %s\n", m)
+		}
+		os.Exit(1)
+	}
+
+	err = deploycmd.Run(&ms)
 	if err != nil {
 		logger.Error("An error occured during processing", zap.Error(err))
 		return

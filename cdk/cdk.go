@@ -1,14 +1,19 @@
-package main
+package cdk
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	firehose "github.com/aws/aws-cdk-go/awscdkkinesisfirehosealpha/v2"
 	destinations "github.com/aws/aws-cdk-go/awscdkkinesisfirehosedestinationsalpha/v2"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
+	cw "github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -17,7 +22,7 @@ type CDKStackProps struct {
 	awscdk.StackProps
 }
 
-func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps) awscdk.Stack {
+func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps, ms *cw.MetricStat) awscdk.Stack {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
@@ -91,11 +96,15 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps) aw
 	db.GrantReadWriteData(f)
 	fh.GrantPutRecords(f)
 
-	return stack
-}
+	fmt.Printf("%+v", *ms)
+	awsevents.NewRule(stack, jsii.String("Scheduler"), &awsevents.RuleProps{
+		Schedule: awsevents.Schedule_Rate(awscdk.Duration_Minutes(jsii.Number(5))),
+		Targets: &[]awsevents.IRuleTarget{
+			awseventstargets.NewLambdaFunction(f, &awseventstargets.LambdaFunctionProps{
+				Event: awsevents.RuleTargetInput_FromObject(ms),
+			}),
+		},
+	})
 
-func main() {
-	app := awscdk.NewApp(nil)
-	NewCDKStack(app, "cwexport", &CDKStackProps{})
-	app.Synth(nil)
+	return stack
 }
