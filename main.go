@@ -63,7 +63,7 @@ To see help text, you can run:
   cwexport deploy --help
   cwexport version
 examples:
-  cwexport local -from=2022-01-01T12:00:00Z -ns=test -name=challengesStarted -stat=Sum
+  cwexport local -from=2022-03-14T16:00:00Z -ns=authApi -name=challengesStarted -stat=Sum -dimension=ServiceName/auth-api-challengePostHandler92AD93BF-thIg6mklFAlF -dimension=ServiceType/AWS::Lambda::Function
   cwexport deploy`)
 	os.Exit(1)
 }
