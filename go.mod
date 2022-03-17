@@ -3,6 +3,7 @@ module github.com/a-h/cwexport
 go 1.17
 
 require (
+	github.com/BurntSushi/toml v1.0.0
 	github.com/aws/aws-cdk-go/awscdk/v2 v2.16.0
 	github.com/aws/aws-cdk-go/awscdkkinesisfirehosealpha/v2 v2.16.0-alpha.0
 	github.com/aws/aws-cdk-go/awscdkkinesisfirehosedestinationsalpha/v2 v2.16.0-alpha.0

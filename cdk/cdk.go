@@ -22,7 +22,7 @@ type CDKStackProps struct {
 	awscdk.StackProps
 }
 
-func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps) awscdk.Stack {
+func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps, ms *cw.MetricStat) awscdk.Stack {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
@@ -103,34 +103,14 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps) aw
 	db.GrantReadWriteData(f)
 	fh.GrantPutRecords(f)
 
-	m := &cw.MetricStat{
-		Metric: &cw.Metric{
-			Namespace:  aws.String("authApi"),
-			MetricName: aws.String("challengesStarted"),
-			Dimensions: []cw.Dimension{
-				{
-					Name:  aws.String("ServiceName"),
-					Value: aws.String("auth-api-challengePostHandler92AD93BF-UH40AniBZd25"),
-				},
-				{
-					Name:  aws.String("ServiceType"),
-					Value: aws.String("AWS::Lambda::Function"),
-				},
-			},
-		},
-		Period: aws.Int32(5),
-		Stat:   aws.String("Sum"),
-	}
-
 	awsevents.NewRule(stack, jsii.String("Scheduler"), &awsevents.RuleProps{
-		Schedule: awsevents.Schedule_Rate(awscdk.Duration_Minutes(jsii.Number(1))),
+		Schedule: awsevents.Schedule_Rate(awscdk.Duration_Minutes(jsii.Number(5))),
 		Targets: &[]awsevents.IRuleTarget{
 			awseventstargets.NewLambdaFunction(f, &awseventstargets.LambdaFunctionProps{
-				Event: awsevents.RuleTargetInput_FromObject(m),
+				Event: awsevents.RuleTargetInput_FromObject(ms),
 			}),
 		},
 	})
 
 	return stack
 }
-

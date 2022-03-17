@@ -3,11 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"runtime/debug"
 	"strings"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/a-h/cwexport/deploycmd"
 	"github.com/a-h/cwexport/localcmd"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -140,18 +142,46 @@ func localCmd(args []string) {
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
-	}
+  }
 }
 
 func deployCmd(args []string) {
 	cmd := flag.NewFlagSet("deploy", flag.ExitOnError)
 	helpFlag := cmd.Bool("help", false, "Print help and exit.")
+	configFlag := cmd.String("config", "", "Config file")
+
+	var messages []string
+
 	err := cmd.Parse(args)
 	if err != nil || *helpFlag {
 		cmd.PrintDefaults()
 		return
 	}
-	err = deploycmd.Run()
+
+  if *configFlag == "" {
+		messages = append(messages, "Missing config file")
+	}
+
+	confData, err := ioutil.ReadFile(*configFlag)
+	if err != nil {
+		messages = append(messages, "Unable to read config")
+	}
+
+	var ms types.MetricStat
+	_, err = toml.Decode(string(confData), &ms)
+	if err != nil {
+		messages = append(messages, "Unable to parse config file")
+	}
+
+	if len(messages) > 0 {
+		fmt.Println("Errors:")
+		for _, m := range messages {
+			fmt.Printf("  %s\n", m)
+		}
+		os.Exit(1)
+	}
+
+	err = deploycmd.Run(&ms)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
