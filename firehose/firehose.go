@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/a-h/cwexport/processor"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsfirehose "github.com/aws/aws-sdk-go-v2/service/firehose"
 	"github.com/aws/aws-sdk-go-v2/service/firehose/types"
@@ -14,14 +15,14 @@ type Firehose struct {
 	FirehoseClient     *awsfirehose.Client
 }
 
-func New(deliveryStreamName string, config aws.Config) (fh Firehose, err error) {
+func New(config aws.Config, deliveryStreamName string) (fh Firehose, err error) {
 	return Firehose{
 		DeliveryStreamName: deliveryStreamName,
 		FirehoseClient:     awsfirehose.NewFromConfig(config),
 	}, nil
 }
 
-func (f Firehose) Put(ctx context.Context, metrics []interface{}) error {
+func (f Firehose) Put(ctx context.Context, metrics []processor.MetricSample) error {
 	if len(metrics) == 0 {
 		return nil
 	}

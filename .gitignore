@@ -4,5 +4,5 @@ dynamodb/
 # CDK output
 cdk.out/
 
-# Build artefact
+# Binary
 cwexport

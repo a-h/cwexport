@@ -5,12 +5,14 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	firehose "github.com/aws/aws-cdk-go/awscdkkinesisfirehosealpha/v2"
 	destinations "github.com/aws/aws-cdk-go/awscdkkinesisfirehosedestinationsalpha/v2"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	cw "github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
@@ -90,6 +92,13 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps, ms
 		Entry:        jsii.String("../lambda/processor"),
 		Bundling:     bundlingOptions,
 		Runtime:      awslambda.Runtime_GO_1_X(),
+		InitialPolicy: &[]awsiam.PolicyStatement{
+			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Actions:   jsii.Strings("cloudwatch:GetMetricData"),
+				Effect:    awsiam.Effect_ALLOW,
+				Resources: jsii.Strings("*"),
+			}),
+		},
 	})
 	db.GrantReadWriteData(f)
 	fh.GrantPutRecords(f)

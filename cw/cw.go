@@ -11,19 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 )
 
-type Metric struct {
-	Namespace   string `json:"ns"`
-	Name        string `json:"name"`
-	ServiceName string `json:"serviceName"`
-	ServiceType string `json:"serviceType"`
-}
-
 type Sample struct {
 	Time  time.Time `json:"time"`
 	Value float64   `json:"value"`
 }
 
-func GetMetrics(metric Metric, start time.Time, end time.Time) (samples []Sample, err error) {
+func GetSamples(metric *types.MetricStat, start time.Time, end time.Time) (samples []Sample, err error) {
 	ctx := context.Background()
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -37,25 +30,8 @@ func GetMetrics(metric Metric, start time.Time, end time.Time) (samples []Sample
 		EndTime:   aws.Time(end),
 		MetricDataQueries: []types.MetricDataQuery{
 			{
-				Id: aws.String("a"),
-				MetricStat: &types.MetricStat{
-					Metric: &types.Metric{
-						MetricName: &metric.Name,
-						Namespace:  &metric.Namespace,
-						Dimensions: []types.Dimension{
-							{
-								Name:  aws.String("ServiceName"),
-								Value: &metric.ServiceName,
-							},
-							{
-								Name:  aws.String("ServiceType"),
-								Value: &metric.ServiceType,
-							},
-						},
-					},
-					Period: aws.Int32(60 * 5), // Seconds
-					Stat:   aws.String("Sum"),
-				},
+				Id:         aws.String("a"),
+				MetricStat: metric,
 				ReturnData: aws.Bool(true),
 			},
 		},

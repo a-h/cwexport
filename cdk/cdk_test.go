@@ -1,4 +1,4 @@
-package main
+package cdk
 
 // import (
 // 	"testing"

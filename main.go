@@ -142,7 +142,7 @@ func localCmd(args []string) {
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
-	}
+  }
 }
 
 func deployCmd(args []string) {
@@ -158,7 +158,7 @@ func deployCmd(args []string) {
 		return
 	}
 
-	if *configFlag == "" {
+  if *configFlag == "" {
 		messages = append(messages, "Missing config file")
 	}
 
