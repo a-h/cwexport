@@ -1,6 +1,12 @@
 package cdk
 
 import (
+	"embed"
+	"io"
+	"io/ioutil"
+	"os"
+	"path"
+
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
@@ -11,12 +17,13 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	firehose "github.com/aws/aws-cdk-go/awscdkkinesisfirehosealpha/v2"
 	destinations "github.com/aws/aws-cdk-go/awscdkkinesisfirehosedestinationsalpha/v2"
-	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	cw "github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
+
+//go:embed lambda/processor/lambda
+var lambdaBinary embed.FS
 
 type CDKStackProps struct {
 	awscdk.StackProps
@@ -76,22 +83,36 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps, ms
 		Value:      db.TableName(),
 	})
 
-	bundlingOptions := &awslambdago.BundlingOptions{
-		GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
+	dir, err := ioutil.TempDir("", "cwexport")
+	if err != nil {
+		panic("Cannot create temporary directory: " + err.Error())
+	}
+	defer os.RemoveAll(dir)
+	lf, err := lambdaBinary.Open("lambda/processor/lambda")
+	if err != nil {
+		panic("Cannot open lambda binary: " + err.Error())
+	}
+	tmp, err := os.Create(path.Join(dir, "lambda"))
+	if err != nil {
+		panic("Cannot create temporary file in directory: " + err.Error())
+	}
+	_, err = io.Copy(tmp, lf)
+	if err != nil {
+		panic("Cannot copy lambda binary to temporary location: " + err.Error())
 	}
 
-	f := awslambdago.NewGoFunction(stack, jsii.String("Processor"), &awslambdago.GoFunctionProps{
+	f := awslambda.NewFunction(stack, jsii.String("Processor"), &awslambda.FunctionProps{
 		Environment: &map[string]*string{
 			"METRIC_TABLE_NAME":    db.TableName(),
 			"METRIC_FIREHOSE_NAME": fh.DeliveryStreamName(),
 		},
 		LogRetention: awslogs.RetentionDays_FIVE_MONTHS,
+		Code:         awslambda.AssetCode_FromAsset(jsii.String(dir), nil),
 		MemorySize:   jsii.Number(1024),
 		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
 		Tracing:      awslambda.Tracing_ACTIVE,
-		Entry:        jsii.String("../lambda/processor"),
-		Bundling:     bundlingOptions,
 		Runtime:      awslambda.Runtime_GO_1_X(),
+		Handler:      jsii.String("lambda"),
 		InitialPolicy: &[]awsiam.PolicyStatement{
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 				Actions:   jsii.Strings("cloudwatch:GetMetricData"),

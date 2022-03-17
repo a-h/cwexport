@@ -6,3 +6,4 @@ cdk.out/
 
 # Binary
 cwexport
+cdk/lambda/processor/lambda

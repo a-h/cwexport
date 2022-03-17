@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/a-h/cwexport/cw"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	cw "github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 )
 
 func TestMetricStore(t *testing.T) {
@@ -21,11 +22,23 @@ func TestMetricStore(t *testing.T) {
 	}
 	ctx := context.Background()
 	t.Run("it cannot get a start time for a metric that doesn't exist", func(t *testing.T) {
-		_, ok, err := ms.Get(ctx, cw.Metric{
-			Namespace:   "emptyNamespace",
-			Name:        "missingMetric",
-			ServiceName: "sn",
-			ServiceType: "st",
+		_, ok, err := ms.Get(ctx, &cw.MetricStat{
+			Metric: &cw.Metric{
+				Dimensions: []cw.Dimension{
+					{
+						Name:  "ServiceName",
+						Value: "sn",
+					},
+					{
+						Name:  "ServiceType",
+						Value: "st",
+					},
+				},
+				MetricName: "missingMetric",
+				Namespace:  "emptyNamespace",
+			},
+			Period: aws.Int32(int32((5 * time.Minute).Seconds())),
+			Stat:   stat,
 		})
 		if err != nil {
 			t.Fatalf("unexpected error getting metric: %v", err)
