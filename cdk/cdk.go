@@ -2,6 +2,7 @@ package cdk
 
 import (
 	"embed"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -29,7 +30,7 @@ type CDKStackProps struct {
 	awscdk.StackProps
 }
 
-func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps, ms *cw.MetricStat) awscdk.Stack {
+func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps, ms *[]cw.MetricStat) awscdk.Stack {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
@@ -46,21 +47,6 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps, ms
 		AbortIncompleteMultipartUploadAfter: awscdk.Duration_Days(jsii.Number(7)), // Save space by clearing up partial uploads.
 		NoncurrentVersionExpiration:         awscdk.Duration_Days(jsii.Number(7)), // Delete old versions after 7 days.
 		Expiration:                          awscdk.Duration_Days(jsii.Number(7)), // Delete files from pipeline bucket after 7 days.
-	})
-	fh := firehose.NewDeliveryStream(stack, jsii.String("MetricDeliveryStream"), &firehose.DeliveryStreamProps{
-		Destinations: &[]firehose.IDestination{
-			destinations.NewS3Bucket(mob, &destinations.S3BucketProps{
-				BufferingInterval: awscdk.Duration_Minutes(jsii.Number(1.0)),
-				BufferingSize:     awscdk.Size_Mebibytes(jsii.Number(5.0)),
-				DataOutputPrefix:  jsii.String("cwexport"),
-				ErrorOutputPrefix: jsii.String("cwexport_failures"),
-			}),
-		},
-		Encryption: firehose.StreamEncryption_AWS_OWNED,
-	})
-	awscdk.NewCfnOutput(stack, jsii.String("Firehose"), &awscdk.CfnOutputProps{
-		ExportName: jsii.String("Firehose"),
-		Value:      fh.DeliveryStreamName(),
 	})
 
 	db := awsdynamodb.NewTable(stack, jsii.String("CWExportMetricTable"), &awsdynamodb.TableProps{
@@ -101,37 +87,55 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps, ms
 		panic("Cannot copy lambda binary to temporary location: " + err.Error())
 	}
 
-	f := awslambda.NewFunction(stack, jsii.String("Processor"), &awslambda.FunctionProps{
-		Environment: &map[string]*string{
-			"METRIC_TABLE_NAME":    db.TableName(),
-			"METRIC_FIREHOSE_NAME": fh.DeliveryStreamName(),
-		},
-		LogRetention: awslogs.RetentionDays_FIVE_MONTHS,
-		Code:         awslambda.AssetCode_FromAsset(jsii.String(dir), nil),
-		MemorySize:   jsii.Number(1024),
-		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
-		Tracing:      awslambda.Tracing_ACTIVE,
-		Runtime:      awslambda.Runtime_GO_1_X(),
-		Handler:      jsii.String("lambda"),
-		InitialPolicy: &[]awsiam.PolicyStatement{
-			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Actions:   jsii.Strings("cloudwatch:GetMetricData"),
-				Effect:    awsiam.Effect_ALLOW,
-				Resources: jsii.Strings("*"),
-			}),
-		},
-	})
-	db.GrantReadWriteData(f)
-	fh.GrantPutRecords(f)
+	for _, m := range *ms {
+		fh := firehose.NewDeliveryStream(stack, jsii.String(fmt.Sprintf("%s-%s-MetricDeliveryStream", *m.Metric.Namespace, *m.Metric.MetricName)), &firehose.DeliveryStreamProps{
+			Destinations: &[]firehose.IDestination{
+				destinations.NewS3Bucket(mob, &destinations.S3BucketProps{
+					BufferingInterval: awscdk.Duration_Minutes(jsii.Number(1.0)),
+					BufferingSize:     awscdk.Size_Mebibytes(jsii.Number(5.0)),
+					DataOutputPrefix:  jsii.String(fmt.Sprintf("cwexport-%s-%s", *m.Metric.Namespace, *m.Metric.MetricName)),
+					ErrorOutputPrefix: jsii.String(fmt.Sprintf("cwexport_failures-%s-%s", *m.Metric.Namespace, *m.Metric.MetricName)),
+				}),
+			},
+			Encryption: firehose.StreamEncryption_AWS_OWNED,
+		})
+		awscdk.NewCfnOutput(stack, jsii.String(fmt.Sprintf("%s-%s-Firehose", *m.Metric.Namespace, *m.Metric.MetricName)), &awscdk.CfnOutputProps{
+			ExportName: jsii.String(fmt.Sprintf("%s-%s-Firehose", *m.Metric.Namespace, *m.Metric.MetricName)),
+			Value:      fh.DeliveryStreamName(),
+		})
 
-	awsevents.NewRule(stack, jsii.String("Scheduler"), &awsevents.RuleProps{
-		Schedule: awsevents.Schedule_Rate(awscdk.Duration_Minutes(jsii.Number(5))),
-		Targets: &[]awsevents.IRuleTarget{
-			awseventstargets.NewLambdaFunction(f, &awseventstargets.LambdaFunctionProps{
-				Event: awsevents.RuleTargetInput_FromObject(ms),
-			}),
-		},
-	})
+		f := awslambda.NewFunction(stack, jsii.String(fmt.Sprintf("%s-%s-Processor", *m.Metric.Namespace, *m.Metric.MetricName)), &awslambda.FunctionProps{
+			Environment: &map[string]*string{
+				"METRIC_TABLE_NAME":    db.TableName(),
+				"METRIC_FIREHOSE_NAME": fh.DeliveryStreamName(),
+			},
+			LogRetention: awslogs.RetentionDays_FIVE_MONTHS,
+			Code:         awslambda.AssetCode_FromAsset(jsii.String(dir), nil),
+			MemorySize:   jsii.Number(1024),
+			Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
+			Tracing:      awslambda.Tracing_ACTIVE,
+			Runtime:      awslambda.Runtime_GO_1_X(),
+			Handler:      jsii.String("lambda"),
+			InitialPolicy: &[]awsiam.PolicyStatement{
+				awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+					Actions:   jsii.Strings("cloudwatch:GetMetricData"),
+					Effect:    awsiam.Effect_ALLOW,
+					Resources: jsii.Strings("*"),
+				}),
+			},
+		})
+		db.GrantReadWriteData(f)
+		fh.GrantPutRecords(f)
+
+		awsevents.NewRule(stack, jsii.String(fmt.Sprintf("%s-%s-Scheduler", *m.Metric.Namespace, *m.Metric.MetricName)), &awsevents.RuleProps{
+			Schedule: awsevents.Schedule_Rate(awscdk.Duration_Minutes(jsii.Number(5))),
+			Targets: &[]awsevents.IRuleTarget{
+				awseventstargets.NewLambdaFunction(f, &awseventstargets.LambdaFunctionProps{
+					Event: awsevents.RuleTargetInput_FromObject(&m),
+				}),
+			},
+		})
+	}
 
 	return stack
 }

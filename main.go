@@ -145,6 +145,10 @@ func localCmd(args []string) {
 	}
 }
 
+type metricSetInput struct {
+	Metrics []types.MetricStat
+}
+
 func deployCmd(args []string) {
 	cmd := flag.NewFlagSet("deploy", flag.ExitOnError)
 	helpFlag := cmd.Bool("help", false, "Print help and exit.")
@@ -167,7 +171,7 @@ func deployCmd(args []string) {
 		messages = append(messages, "Unable to read config")
 	}
 
-	var ms types.MetricStat
+	var ms metricSetInput
 	_, err = toml.Decode(string(confData), &ms)
 	if err != nil {
 		messages = append(messages, "Unable to parse config file")
@@ -181,7 +185,7 @@ func deployCmd(args []string) {
 		os.Exit(1)
 	}
 
-	err = deploycmd.Run(&ms)
+	err = deploycmd.Run(&ms.Metrics)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)

@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 )
 
-func Run(ms *types.MetricStat) error {
+func Run(ms *[]types.MetricStat) error {
 	app := awscdk.NewApp(nil)
 	cdk.NewCDKStack(app, "cwexport", &cdk.CDKStackProps{}, ms)
 	cxa := app.Synth(nil)

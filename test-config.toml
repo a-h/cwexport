@@ -1,14 +1,15 @@
-Period = 5
-Stat = "Sum"
+[[Metrics]]
+    Period = 5
+    Stat = "Sum"
 
-[Metric]
-Namespace = "authApi"
-MetricName = "challengesStarted"
+    [Metrics.Metric]
+    Namespace = "authApi"
+    MetricName = "challengesStarted"
 
-[[Metric.Dimensions]]
-Name = "ServiceName"
-Value = "auth-api-challengePostHandler92AD93BF-UH40AniBZd25"
+    [[Metrics.Metric.Dimensions]]
+    Name = "ServiceName"
+    Value = "auth-api-challengePostHandler92AD93BF-UH40AniBZd25"
 
-[[Metric.Dimensions]]
-Name = "ServiceType"
-Value = "AWS::Lambda::Function"
+    [[Metrics.Metric.Dimensions]]
+    Name = "ServiceType"
+    Value = "AWS::Lambda::Function"
