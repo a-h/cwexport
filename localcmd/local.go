@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/a-h/cwexport/cw"
 	"github.com/a-h/cwexport/processor"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"go.uber.org/zap"
@@ -64,7 +65,7 @@ func Run(args Args) (err error) {
 		writer: *csv.NewWriter(os.Stdout),
 	}
 	defer csvp.writer.Flush()
-	p, err := processor.New(logger, nopMetricStore{}, csvp.Put)
+	p, err := processor.New(logger, nopMetricStore{}, csvp.Put, cw.Cloudwatch{})
 	if err != nil {
 		logger.Error("Failed to create new processor", zap.Error(err))
 		return

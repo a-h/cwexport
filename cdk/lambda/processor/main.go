@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/a-h/cwexport/cw"
 	"github.com/a-h/cwexport/db"
 	"github.com/a-h/cwexport/firehose"
 	"github.com/a-h/cwexport/processor"
@@ -53,7 +54,7 @@ func main() {
 		return
 	}
 
-	proc, err = processor.New(log, store, fh.Put)
+	proc, err = processor.New(log, store, fh.Put, cw.Cloudwatch{})
 	if err != nil {
 		log.Error("Failed to create new processor", zap.Error(err))
 		return

@@ -16,7 +16,10 @@ type Sample struct {
 	Value float64   `json:"value"`
 }
 
-func GetSamples(metric *types.MetricStat, start time.Time, end time.Time) (samples []Sample, err error) {
+type Cloudwatch struct {
+}
+
+func (Cloudwatch) GetSamples(metric *types.MetricStat, start time.Time, end time.Time) (samples []Sample, err error) {
 	ctx := context.Background()
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
