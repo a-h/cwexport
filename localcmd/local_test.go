@@ -2,7 +2,6 @@ package localcmd
 
 import (
 	"context"
-	"encoding/csv"
 	"strings"
 	"testing"
 	"time"
@@ -50,14 +49,12 @@ func TestCSVOutput(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			var w strings.Builder
-			cw := csv.NewWriter(&w)
-			cp := csvPutter{writer: *cw}
+			cp := newCSVPutter(&w)
 			err := cp.Put(context.TODO(), tC.samples)
-			cw.Flush()
 			if err != nil {
 				t.Errorf("Failed to generate csv")
 			}
-
+			cp.writer.Flush()
 			result := w.String()
 
 			if strings.Compare(tC.expectedOutput, result) != 0 {

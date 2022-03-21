@@ -41,6 +41,10 @@ type csvPutter struct {
 	writer csv.Writer
 }
 
+func newCSVPutter(w io.Writer) csvPutter {
+	return csvPutter{writer: *csv.NewWriter(w)}
+}
+
 func (p csvPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
 	for _, s := range ms {
 		//TODO: Add a header if it's the first time?
@@ -66,9 +70,7 @@ func Run(args Args) (err error) {
 	if args.writer == nil {
 		args.writer = os.Stdout
 	}
-	csvp := csvPutter{
-		writer: *csv.NewWriter(args.writer),
-	}
+	csvp := newCSVPutter(args.writer)
 	defer csvp.writer.Flush()
 	p, err := processor.New(logger, nopMetricStore{}, csvp.Put, cw.Cloudwatch{})
 	if err != nil {
