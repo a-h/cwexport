@@ -9,7 +9,7 @@ ServiceName="pricing-api-generatePricePost3D9C7A9C-UERajJf7MzlI"
 ServiceType="AWS::Lambda::Function"
 
 [[metric]]
-Namespace="Lambda"
+Namespace="AWS/Lambda"
 MetricName="Invocations"
 Stat="Sum"
 Period=5

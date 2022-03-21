@@ -6,20 +6,18 @@ Exports CloudWatch metrics.
 
 ### run
 
+Requires: build
+
 Run locally & print out metrics as CSV (TODO: support for JSON output)
+
 ```sh
-./build.sh && ./cwexport local \
+./cwexport local \
     -from=2022-03-14T16:00:00Z \
     -ns=authApi \
     -name=challengesStarted \
     -stat=Sum \
     -dimension=ServiceName/auth-api-challengePostHandler92AD93BF-thIg6mklFAlF \
     -dimension=ServiceType/AWS::Lambda::Function
-```
-
-For more information see:
-```sh
-./build.sh && ./cwexport local --help
 ```
 
 ### run-dynamodb-docker
@@ -68,3 +66,10 @@ Deploy the Lambda function to the AWS environment.
 ./build.sh && ./cwexport deploy -config=test-config.toml
 ```
 
+### get-lambda-invocations
+
+Requires: build
+
+```sh
+./cwexport local -from=2022-03-21T16:00:00Z -ns="AWS/Lambda" -name=Invocations -stat=Sum
+```

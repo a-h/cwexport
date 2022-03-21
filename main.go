@@ -166,8 +166,10 @@ func (c configuration) ToMetricStats() *[]types.MetricStat {
 			continue
 		}
 		for k, v := range m.Dimensions {
+			name := k
+			value := v
 			op[i].Metric.Dimensions = append(op[i].Metric.Dimensions,
-				types.Dimension{Name: &k, Value: &v})
+				types.Dimension{Name: &name, Value: &value})
 		}
 	}
 	return &op

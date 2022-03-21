@@ -101,10 +101,6 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps) aw
 			},
 			Encryption: firehose.StreamEncryption_AWS_OWNED,
 		})
-		awscdk.NewCfnOutput(stack, jsii.String(fmt.Sprintf("%s-%s-Firehose", *m.Metric.Namespace, *m.Metric.MetricName)), &awscdk.CfnOutputProps{
-			ExportName: jsii.String(fmt.Sprintf("%s-%s-Firehose", *m.Metric.Namespace, *m.Metric.MetricName)),
-			Value:      fh.DeliveryStreamName(),
-		})
 
 		f := awslambda.NewFunction(stack, jsii.String(fmt.Sprintf("%s-%s-Processor", *m.Metric.Namespace, *m.Metric.MetricName)), &awslambda.FunctionProps{
 			Environment: &map[string]*string{
