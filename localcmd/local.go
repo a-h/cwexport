@@ -3,6 +3,7 @@ package localcmd
 import (
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -17,26 +18,49 @@ type Format string
 
 const (
 	FormatCSV  Format = "csv"
-	FormatJSON        = "json"
+	FormatJSON Format = "json"
 )
 
 type Args struct {
 	Start      time.Time
+	Format     Format
 	MetricStat *types.MetricStat
 }
 
-type nopMetricStore struct {
-}
+type nopMetricStore struct{}
 
-func (_ nopMetricStore) Get(ctx context.Context, m *types.MetricStat) (lastStart time.Time, ok bool, err error) {
+func (nopMetricStore) Get(ctx context.Context, m *types.MetricStat) (lastStart time.Time, ok bool, err error) {
 	return
 }
-func (_ nopMetricStore) Put(ctx context.Context, m *types.MetricStat, lastStart time.Time) (err error) {
+func (nopMetricStore) Put(ctx context.Context, m *types.MetricStat, lastStart time.Time) (err error) {
 	return
 }
 
 type csvPutter struct {
 	writer csv.Writer
+}
+
+type jsonPutter struct {
+	encoder *json.Encoder
+}
+
+func NewJSONPutter() jsonPutter {
+	return jsonPutter{
+		encoder: json.NewEncoder(os.Stdout),
+	}
+}
+
+func NewCSVPutter() csvPutter {
+	return csvPutter{
+		writer: *csv.NewWriter(os.Stdout),
+	}
+}
+
+func (p jsonPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
+	if len(ms) > 0 {
+		p.encoder.Encode(ms)
+	}
+	return nil
 }
 
 func (p csvPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
@@ -56,16 +80,25 @@ func (p csvPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
 			return err
 		}
 	}
+	defer p.writer.Flush()
 	return nil
 }
 
 func Run(args Args) (err error) {
 	logger := zap.NewNop()
-	csvp := csvPutter{
-		writer: *csv.NewWriter(os.Stdout),
+
+	var putter processor.MetricPutter
+	switch args.Format {
+	case FormatCSV:
+		putter = NewCSVPutter().Put
+	case FormatJSON:
+		putter = NewJSONPutter().Put
+	default:
+		logger.Error("unknown format")
+		return
 	}
-	defer csvp.writer.Flush()
-	p, err := processor.New(logger, nopMetricStore{}, csvp.Put, cw.Cloudwatch{})
+
+	p, err := processor.New(logger, nopMetricStore{}, putter, cw.Cloudwatch{})
 	if err != nil {
 		logger.Error("Failed to create new processor", zap.Error(err))
 		return
@@ -77,4 +110,13 @@ func Run(args Args) (err error) {
 		return
 	}
 	return nil
+}
+
+func IsValidFormat(f Format) bool {
+	supported := map[Format]bool{
+		FormatJSON: true,
+		FormatCSV:  true,
+	}
+	_, ok := supported[f]
+	return ok
 }
