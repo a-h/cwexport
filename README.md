@@ -22,13 +22,16 @@ For more information see:
 ./build.sh && ./cwexport local --help
 ```
 
-### run-dynamodb
+### run-dynamodb-docker
 
-* Using docker:
 ```sh
 docker run -p 8000:8000 amazon/dynamodb-local
 ```
-* Using locally running Dynamodb instance
+
+### run-dynamodb
+
+Run DynamoDB locally.
+
 ```sh
 ./run-dynamodb-local.sh
 ```
@@ -46,13 +49,22 @@ go test ./... -short
 ```sh
 go test ./...
 ```
-### Deploy
+
+### build
+
+Build the cwexport executable.
+
+```sh
+./build.sh
+```
+
+### deploy
+
+Requires: build
+
+Deploy the Lambda function to the AWS environment.
 
 ```sh
 ./build.sh && ./cwexport deploy -config=test-config.toml
 ```
 
-For more information see:
-```sh
-./build.sh && ./cwexport deploy --help
-```

@@ -43,6 +43,14 @@ func main() {
 		return
 	}
 
+	if startTimeEnv := os.Getenv("METRIC_START_TIME"); startTimeEnv != "" {
+		metricStartTime, err = time.Parse(time.RFC3339, startTimeEnv)
+		if err != nil {
+			log.Fatal("Unable to parse METRIC_START_TIME, using default time")
+			return
+		}
+	}
+
 	tableName := os.Getenv("METRIC_TABLE_NAME")
 	if tableName == "" {
 		log.Fatal("Missing METRIC_TABLE_NAME env variable")
@@ -63,12 +71,12 @@ func main() {
 	lambda.Start(Handle)
 }
 
+var metricStartTime = time.Now().Add(time.Minute * -5)
+
 func Handle(ctx context.Context, event types.MetricStat) (err error) {
 	log.Info("Received event", zap.Any("event", event))
 
-	start := time.Date(2022, time.March, 15, 9, 00, 0, 0, time.UTC)
-
-	err = proc.Process(ctx, start, &event)
+	err = proc.Process(ctx, metricStartTime, &event)
 	if err != nil {
 		log.Error("An error occured during processing", zap.Error(err))
 		return

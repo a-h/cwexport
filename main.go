@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"runtime/debug"
 	"strings"
@@ -145,14 +144,50 @@ func localCmd(args []string) {
 	}
 }
 
-type metricSetInput struct {
-	Metrics []types.MetricStat
+type configuration struct {
+	Metrics []metric
+}
+
+func (c configuration) ToMetricStats() *[]types.MetricStat {
+	op := make([]types.MetricStat, len(c.Metrics))
+	for i := 0; i < len(op); i++ {
+		m := c.Metrics[i]
+		p := int32(m.Period)
+		op[i] = types.MetricStat{
+			Metric: &types.Metric{
+				Dimensions: []types.Dimension{},
+				MetricName: &m.MetricName,
+				Namespace:  &m.Namespace,
+			},
+			Period: &p,
+			Stat:   &m.Stat,
+		}
+		if m.Dimensions == nil {
+			continue
+		}
+		for k, v := range m.Dimensions {
+			op[i].Metric.Dimensions = append(op[i].Metric.Dimensions,
+				types.Dimension{Name: &k, Value: &v})
+		}
+	}
+	return &op
+}
+
+type metric struct {
+	Period     int
+	Stat       string
+	Namespace  string
+	MetricName string
+	Dimensions map[string]string
+	StartTime  time.Time
 }
 
 func deployCmd(args []string) {
 	cmd := flag.NewFlagSet("deploy", flag.ExitOnError)
 	helpFlag := cmd.Bool("help", false, "Print help and exit.")
-	configFlag := cmd.String("config", "", "Config file")
+	bucketNameFlag := cmd.String("bucket-name", "", "Name of the S3 bucket to use. If left blank, a new one will be created.")
+	firehoseRoleNameFlag := cmd.String("firehose-role-name", "", "Optional name of a custom Firehose Role to use. If left blank, a default role will be used.")
+	configFlag := cmd.String("config", "", "Path to config file.")
 
 	var messages []string
 
@@ -166,13 +201,8 @@ func deployCmd(args []string) {
 		messages = append(messages, "Missing config file")
 	}
 
-	confData, err := ioutil.ReadFile(*configFlag)
-	if err != nil {
-		messages = append(messages, "Unable to read config")
-	}
-
-	var ms metricSetInput
-	_, err = toml.Decode(string(confData), &ms)
+	var ms configuration
+	_, err = toml.DecodeFile(*configFlag, &ms)
 	if err != nil {
 		messages = append(messages, "Unable to parse config file")
 	}
@@ -185,7 +215,11 @@ func deployCmd(args []string) {
 		os.Exit(1)
 	}
 
-	err = deploycmd.Run(&ms.Metrics)
+	err = deploycmd.Run(deploycmd.Arguments{
+		Stats:            ms.ToMetricStats(),
+		FirehoseRoleName: *firehoseRoleNameFlag,
+		BucketName:       *bucketNameFlag,
+	})
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)

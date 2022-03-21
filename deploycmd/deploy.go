@@ -9,9 +9,19 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 )
 
-func Run(ms *[]types.MetricStat) error {
+type Arguments struct {
+	Stats            *[]types.MetricStat
+	FirehoseRoleName string
+	BucketName       string
+}
+
+func Run(args Arguments) error {
 	app := awscdk.NewApp(nil)
-	cdk.NewCDKStack(app, "cwexport", &cdk.CDKStackProps{}, ms)
+	cdk.NewCDKStack(app, "cwexport", &cdk.CDKStackProps{
+		Stats:            args.Stats,
+		FirehoseRoleName: args.FirehoseRoleName,
+		BucketName:       args.BucketName,
+	})
 	cxa := app.Synth(nil)
 	com := exec.Command("cdk", "deploy", "--app="+*cxa.Directory(), "--require-approval=never")
 	com.Stdin = os.Stdin
