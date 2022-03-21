@@ -18,6 +18,7 @@ Run locally & print out metrics as CSV (TODO: support for JSON output)
     -stat=Sum \
     -dimension=ServiceName/auth-api-challengePostHandler92AD93BF-thIg6mklFAlF \
     -dimension=ServiceType/AWS::Lambda::Function
+    -format=CSV
 ```
 
 ### run-dynamodb-docker
