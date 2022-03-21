@@ -131,7 +131,7 @@ func NewCDKStack(scope constructs.Construct, id string, props *CDKStackProps, ms
 			Schedule: awsevents.Schedule_Rate(awscdk.Duration_Minutes(jsii.Number(5))),
 			Targets: &[]awsevents.IRuleTarget{
 				awseventstargets.NewLambdaFunction(f, &awseventstargets.LambdaFunctionProps{
-					Event: awsevents.RuleTargetInput_FromObject(&m),
+					Event: awsevents.RuleTargetInput_FromObject(m),
 				}),
 			},
 		})
