@@ -145,13 +145,13 @@ func localCmd(args []string) {
 }
 
 type configuration struct {
-	Metrics []metric
+	Metric []metric
 }
 
 func (c configuration) ToMetricStats() *[]types.MetricStat {
-	op := make([]types.MetricStat, len(c.Metrics))
-	for i := 0; i < len(op); i++ {
-		m := c.Metrics[i]
+	op := make([]types.MetricStat, len(c.Metric))
+	for i := 0; i < len(c.Metric); i++ {
+		m := c.Metric[i]
 		p := int32(m.Period)
 		op[i] = types.MetricStat{
 			Metric: &types.Metric{
@@ -201,10 +201,14 @@ func deployCmd(args []string) {
 		messages = append(messages, "Missing config file")
 	}
 
-	var ms configuration
-	_, err = toml.DecodeFile(*configFlag, &ms)
+	var conf configuration
+	_, err = toml.DecodeFile(*configFlag, &conf)
 	if err != nil {
 		messages = append(messages, "Unable to parse config file")
+	}
+	stats := conf.ToMetricStats()
+	if len(*stats) == 0 {
+		messages = append(messages, "No stats to monitor, is the configuration file correct?")
 	}
 
 	if len(messages) > 0 {
@@ -216,7 +220,7 @@ func deployCmd(args []string) {
 	}
 
 	err = deploycmd.Run(deploycmd.Arguments{
-		Stats:            ms.ToMetricStats(),
+		Stats:            conf.ToMetricStats(),
 		FirehoseRoleName: *firehoseRoleNameFlag,
 		BucketName:       *bucketNameFlag,
 	})
