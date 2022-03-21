@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -23,6 +24,7 @@ const (
 type Args struct {
 	Start      time.Time
 	MetricStat *types.MetricStat
+	writer     io.Writer
 }
 
 type nopMetricStore struct {
@@ -61,8 +63,11 @@ func (p csvPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
 
 func Run(args Args) (err error) {
 	logger := zap.NewNop()
+	if args.writer == nil {
+		args.writer = os.Stdout
+	}
 	csvp := csvPutter{
-		writer: *csv.NewWriter(os.Stdout),
+		writer: *csv.NewWriter(args.writer),
 	}
 	defer csvp.writer.Flush()
 	p, err := processor.New(logger, nopMetricStore{}, csvp.Put, cw.Cloudwatch{})
