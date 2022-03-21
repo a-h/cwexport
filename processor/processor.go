@@ -29,6 +29,7 @@ type Processor struct {
 }
 
 type MetricSample struct {
+	Source string `json:"src"`
 	*types.MetricStat
 	cw.Sample `json:"sample"`
 }
@@ -83,6 +84,7 @@ func (p Processor) Process(ctx context.Context, startTime time.Time, metric *typ
 		var metricSamples []MetricSample
 		for _, s := range samples {
 			metricSamples = append(metricSamples, MetricSample{
+				Source:     "cwexport",
 				MetricStat: metric,
 				Sample:     s,
 			})
