@@ -36,16 +36,6 @@ func (nopMetricStore) Put(ctx context.Context, m *types.MetricStat, lastStart ti
 	return
 }
 
-type jsonPutter struct {
-	encoder *json.Encoder
-}
-
-func newJSONPutter() jsonPutter {
-	return jsonPutter{
-		encoder: json.NewEncoder(os.Stdout),
-	}
-}
-
 type csvPutter struct {
 	writer csv.Writer
 }
@@ -54,13 +44,6 @@ func newCSVPutter() csvPutter {
 	return csvPutter{
 		writer: *csv.NewWriter(os.Stdout),
 	}
-}
-
-func (p jsonPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
-	if len(ms) > 0 {
-		p.encoder.Encode(ms)
-	}
-	return nil
 }
 
 func (p csvPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
@@ -81,6 +64,23 @@ func (p csvPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
 		}
 	}
 	defer p.writer.Flush()
+	return nil
+}
+
+type jsonPutter struct {
+	encoder *json.Encoder
+}
+
+func newJSONPutter() jsonPutter {
+	return jsonPutter{
+		encoder: json.NewEncoder(os.Stdout),
+	}
+}
+
+func (p jsonPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
+	if len(ms) > 0 {
+		p.encoder.Encode(ms)
+	}
 	return nil
 }
 
