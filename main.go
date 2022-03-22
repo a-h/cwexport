@@ -132,7 +132,7 @@ func localCmd(args []string) {
 		for _, m := range messages {
 			fmt.Printf("  %s\n", m)
 		}
-		os.Exit(1)
+		return
 	}
 
 	cmdArgs.Format = outFormat

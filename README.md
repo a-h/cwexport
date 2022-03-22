@@ -8,17 +8,20 @@ Exports CloudWatch metrics.
 
 Requires: build
 
-Run locally & print out metrics as CSV (TODO: support for JSON output)
+Run locally & outputs CSV (default)
 
 ```sh
-./cwexport local \
-    -from=2022-03-14T16:00:00Z \
-    -ns=authApi \
-    -name=challengesStarted \
-    -stat=Sum \
-    -dimension=ServiceName/auth-api-challengePostHandler92AD93BF-thIg6mklFAlF \
-    -dimension=ServiceType/AWS::Lambda::Function
-    -format=CSV
+./cwexport local -from=2022-03-14T16:00:00Z -ns=authApi -name=challengesStarted -stat=Sum -dimension=ServiceName/auth-api-challengePostHandler92AD93BF-thIg6mklFAlF -dimension=ServiceType/AWS::Lambda::Function
+```
+
+### run-json
+
+Requires: build
+
+Run locally & outputs JSON
+
+```sh
+./cwexport local -from=2022-03-14T16:00:00Z -ns=authApi -name=challengesStarted -stat=Sum -dimension=ServiceName/auth-api-challengePostHandler92AD93BF-thIg6mklFAlF -dimension=ServiceType/AWS::Lambda::Function -format=JSON
 ```
 
 ### run-dynamodb-docker

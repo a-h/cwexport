@@ -36,21 +36,21 @@ func (nopMetricStore) Put(ctx context.Context, m *types.MetricStat, lastStart ti
 	return
 }
 
-type csvPutter struct {
-	writer csv.Writer
-}
-
 type jsonPutter struct {
 	encoder *json.Encoder
 }
 
-func NewJSONPutter() jsonPutter {
+func newJSONPutter() jsonPutter {
 	return jsonPutter{
 		encoder: json.NewEncoder(os.Stdout),
 	}
 }
 
-func NewCSVPutter() csvPutter {
+type csvPutter struct {
+	writer csv.Writer
+}
+
+func newCSVPutter() csvPutter {
 	return csvPutter{
 		writer: *csv.NewWriter(os.Stdout),
 	}
@@ -90,11 +90,11 @@ func Run(args Args) (err error) {
 	var putter processor.MetricPutter
 	switch args.Format {
 	case FormatCSV:
-		putter = NewCSVPutter().Put
+		putter = newCSVPutter().Put
 	case FormatJSON:
-		putter = NewJSONPutter().Put
+		putter = newJSONPutter().Put
 	default:
-		logger.Error("unknown format")
+		err = fmt.Errorf("provided format not supported: %s", args.Format)
 		return
 	}
 
@@ -113,10 +113,11 @@ func Run(args Args) (err error) {
 }
 
 func IsValidFormat(f Format) bool {
-	supported := map[Format]bool{
-		FormatJSON: true,
-		FormatCSV:  true,
+	if f == FormatJSON {
+		return true
 	}
-	_, ok := supported[f]
-	return ok
+	if f == FormatCSV {
+		return true
+	}
+	return false
 }
