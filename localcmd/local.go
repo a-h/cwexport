@@ -3,6 +3,7 @@ package localcmd
 import (
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -18,22 +19,22 @@ type Format string
 
 const (
 	FormatCSV  Format = "csv"
-	FormatJSON        = "json"
+	FormatJSON Format = "json"
 )
 
 type Args struct {
 	Start      time.Time
+	Format     Format
 	MetricStat *types.MetricStat
 	writer     io.Writer
 }
 
-type nopMetricStore struct {
-}
+type nopMetricStore struct{}
 
-func (_ nopMetricStore) Get(ctx context.Context, m *types.MetricStat) (lastStart time.Time, ok bool, err error) {
+func (nopMetricStore) Get(ctx context.Context, m *types.MetricStat) (lastStart time.Time, ok bool, err error) {
 	return
 }
-func (_ nopMetricStore) Put(ctx context.Context, m *types.MetricStat, lastStart time.Time) (err error) {
+func (nopMetricStore) Put(ctx context.Context, m *types.MetricStat, lastStart time.Time) (err error) {
 	return
 }
 
@@ -62,17 +63,44 @@ func (p csvPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
 			return err
 		}
 	}
+	defer p.writer.Flush()
+	return nil
+}
+
+type jsonPutter struct {
+	encoder *json.Encoder
+}
+
+func newJSONPutter() jsonPutter {
+	return jsonPutter{
+		encoder: json.NewEncoder(os.Stdout),
+	}
+}
+
+func (p jsonPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
+	if len(ms) > 0 {
+		p.encoder.Encode(ms)
+	}
 	return nil
 }
 
 func Run(args Args) (err error) {
 	logger := zap.NewNop()
-	if args.writer == nil {
+  if args.writer == nil {
 		args.writer = os.Stdout
 	}
-	csvp := newCSVPutter(args.writer)
-	defer csvp.writer.Flush()
-	p, err := processor.New(logger, nopMetricStore{}, csvp.Put, cw.Cloudwatch{})
+	var putter processor.MetricPutter
+	switch args.Format {
+	case FormatCSV:
+		putter = newCSVPutter(args.writer).Put
+	case FormatJSON:
+		putter = newJSONPutter(args.writer).Put
+	default:
+		err = fmt.Errorf("provided format not supported: %s", args.Format)
+		return
+	}
+
+	p, err := processor.New(logger, nopMetricStore{}, putter, cw.Cloudwatch{})
 	if err != nil {
 		logger.Error("Failed to create new processor", zap.Error(err))
 		return
@@ -84,4 +112,14 @@ func Run(args Args) (err error) {
 		return
 	}
 	return nil
+}
+
+func IsValidFormat(f Format) bool {
+	if f == FormatJSON {
+		return true
+	}
+	if f == FormatCSV {
+		return true
+	}
+	return false
 }

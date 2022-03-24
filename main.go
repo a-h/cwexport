@@ -64,7 +64,7 @@ To see help text, you can run:
   cwexport deploy --help
   cwexport version
 examples:
-  cwexport local -from=2022-03-14T16:00:00Z -ns=authApi -name=challengesStarted -stat=Sum -dimension=ServiceName/auth-api-challengePostHandler92AD93BF-thIg6mklFAlF -dimension=ServiceType/AWS::Lambda::Function
+  cwexport local -from=2022-03-14T16:00:00Z -ns=authApi -name=challengesStarted -stat=Sum -dimension=ServiceName/auth-api-challengePostHandler92AD93BF-thIg6mklFAlF -dimension=ServiceType/AWS::Lambda::Function -format=csv
   cwexport deploy`)
 	os.Exit(1)
 }
@@ -86,6 +86,7 @@ func localCmd(args []string) {
 	namespace := cmd.String("ns", "", "The namespace of the metric.")
 	name := cmd.String("name", "", "The name of the metric.")
 	stat := cmd.String("stat", "Sum", "The stat to use, e.g. Sum or Average.")
+	format := cmd.String("format", "csv", "The format of the metrics output (supported: CSV, JSON)")
 	var dimensions arrayFlags
 	cmd.Var(&dimensions, "dimension", "Dimension as key value, e.g. ServiceName/123")
 	helpFlag := cmd.Bool("help", false, "Print help and exit.")
@@ -108,6 +109,12 @@ func localCmd(args []string) {
 	if *name == "" {
 		messages = append(messages, "Missing 'name' string parameter")
 	}
+
+	outFormat := localcmd.Format(strings.ToLower(*format))
+	if !localcmd.IsValidFormat(outFormat) {
+		messages = append(messages, "Unknown format provided: "+*format)
+	}
+
 	dims := make([]types.Dimension, len(dimensions))
 	for i := 0; i < len(dimensions); i++ {
 		v := strings.SplitN(dimensions[i], "/", 2)
@@ -125,8 +132,10 @@ func localCmd(args []string) {
 		for _, m := range messages {
 			fmt.Printf("  %s\n", m)
 		}
+		return
 	}
 
+	cmdArgs.Format = outFormat
 	cmdArgs.MetricStat = &types.MetricStat{
 		Metric: &types.Metric{
 			Dimensions: dims,
