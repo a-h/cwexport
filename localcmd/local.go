@@ -71,9 +71,9 @@ type jsonPutter struct {
 	encoder *json.Encoder
 }
 
-func newJSONPutter() jsonPutter {
+func newJSONPutter(w io.Writer) jsonPutter {
 	return jsonPutter{
-		encoder: json.NewEncoder(os.Stdout),
+		encoder: json.NewEncoder(w),
 	}
 }
 
@@ -86,7 +86,7 @@ func (p jsonPutter) Put(ctx context.Context, ms []processor.MetricSample) error 
 
 func Run(args Args) (err error) {
 	logger := zap.NewNop()
-  if args.writer == nil {
+	if args.writer == nil {
 		args.writer = os.Stdout
 	}
 	var putter processor.MetricPutter
