@@ -25,7 +25,7 @@ Can be used as a local command-line tool, or deployed as a Lambda function.
   -config=test-config.toml
 ```
 
-```yaml
+```toml
 [[metric]]
 Namespace="pricingApi"
 MetricName="completedPricing"
