@@ -1,14 +1,14 @@
-name: build
+name: Build and Release
 on:
   push:
-    branches: [ feat/build-pipeline ]
     # Sequence of patterns matched against refs/tags
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
 
-  build:
+  setup:
+    name: Setup and Test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -19,28 +19,67 @@ jobs:
         go-version: 1.17
 
     - name: Test
-      run: go test -v -cover ./...
+      run: GOOS="linux" GOARCH="amd64" go build -o cdk/lambda/processor/lambda -ldflags "-s -w" cdk/lambda/processor/main.go && go test -v -cover ./...
 
-    - name: Build
-      run: sh build.sh
-
-    - name: Changelog
-      uses: scottbrenner/generate-changelog-action@master
-      id: Changelog
-      env:
-        REPO: ${{ github.repository }}
+  create:
+    name: Create release
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      release_upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
 
     - name: Build Changelog
       id: github_release
-      uses: mikepenz/release-changelog-builder-action@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: heinrichreimer/github-changelog-generator-action@v2.3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Create Release
       uses: actions/create-release@v1
+      id: create_release
       with:
+        draft: false
+        prerelease: false
         tag_name: ${{ github.ref }}
         release_name: ${{ github.ref }}
         body: ${{steps.github_release.outputs.changelog}}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    needs: [setup, create]
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: [amd64, arm64]
+        os: [linux, darwin, windows]
+    steps:
+
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
+
+    - name: Build lambda
+      run: GOOS="linux" GOARCH="amd64" go build -o cdk/lambda/processor/lambda -ldflags "-s -w" cdk/lambda/processor/main.go
+
+    - name: Build ${{ matrix.os }} ${{ matrix.arch }}
+      run: GOOS="${{ matrix.os }}" GOARCH="${{ matrix.arch }}" go build -o output/cwexport-${{ matrix.os }}-${{ matrix.arch }}
+
+    - name: Package ${{ matrix.os }} ${{ matrix.arch }}
+      run: tar -zcvf output/cwexport-${{ matrix.os }}-${{ matrix.arch }}.tar.gz -C output/ cwexport-${{ matrix.os }}-${{ matrix.arch }}
+
+    - name: Upload ${{ matrix.os }} ${{ matrix.arch }} artifact
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ needs.create.outputs.release_upload_url }}
+        asset_path: ./output/cwexport-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+        asset_name: cwexport-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+        asset_content_type: application/gzip
