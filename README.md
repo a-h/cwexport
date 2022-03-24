@@ -1,6 +1,48 @@
 # cwexport
 
-Exports CloudWatch metrics.
+Exports CloudWatch metrics to JSON or CSV.
+
+Can be used as a local command-line tool, or deployed as a Lambda function.
+
+## Usage
+
+### Local export (CSV)
+
+```sh
+./cwexport local \
+  -from=2022-03-14T16:00:00Z \
+  -ns=authApi \
+  -name=challengesStarted \
+  -stat=Sum \
+  -dimension=ServiceName/auth-api-challengePostHandler92AD93BF-thIg6mklFAlF \
+  -dimension=ServiceType/AWS::Lambda::Function
+```
+
+### Lambda export to S3 (JSON)
+
+```sh
+./cwexport deploy \
+  -config=test-config.toml
+```
+
+```yaml
+[[metric]]
+Namespace="pricingApi"
+MetricName="completedPricing"
+Stat="Sum"
+Period = 5
+StartTime=2021-03-21T09:00:00Z
+[metric.dimensions]
+ServiceName="pricing-api-generatePricePost3D9C7A9C-UERajJf7MzlI"
+ServiceType="AWS::Lambda::Function"
+
+[[metric]]
+Namespace="AWS/Lambda"
+MetricName="Invocations"
+Stat="Sum"
+Period=5
+StartTime=2021-03-21T09:00:00Z
+```
 
 ## Tasks
 
