@@ -2,7 +2,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - v0.*
+      - "v0.*"
 
 jobs:
 
