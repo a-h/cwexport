@@ -24,7 +24,7 @@ jobs:
         go-version: 1.17
 
     - name: Test
-      run: go test -v -cover ./...
+      run: touch cdk/lambda/processor/lambda && go test -v -cover ./...
 
   create:
     name: Create release
