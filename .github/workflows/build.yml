@@ -19,7 +19,7 @@ jobs:
         go-version: 1.17
 
     - name: Test
-      run: GOOS="linux" GOARCH="amd64" go build -o cdk/lambda/processor/lambda -ldflags "-s -w" cdk/lambda/processor/main.go && go test -v -cover ./...
+      run: go test -v -cover ./...
 
   create:
     name: Create release
