@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -25,6 +26,7 @@ type Args struct {
 	Start      time.Time
 	Format     Format
 	MetricStat *types.MetricStat
+	writer     io.Writer
 }
 
 type nopMetricStore struct{}
@@ -40,10 +42,8 @@ type csvPutter struct {
 	writer csv.Writer
 }
 
-func newCSVPutter() csvPutter {
-	return csvPutter{
-		writer: *csv.NewWriter(os.Stdout),
-	}
+func newCSVPutter(w io.Writer) csvPutter {
+	return csvPutter{writer: *csv.NewWriter(w)}
 }
 
 func (p csvPutter) Put(ctx context.Context, ms []processor.MetricSample) error {
@@ -86,13 +86,15 @@ func (p jsonPutter) Put(ctx context.Context, ms []processor.MetricSample) error 
 
 func Run(args Args) (err error) {
 	logger := zap.NewNop()
-
+  if args.writer == nil {
+		args.writer = os.Stdout
+	}
 	var putter processor.MetricPutter
 	switch args.Format {
 	case FormatCSV:
-		putter = newCSVPutter().Put
+		putter = newCSVPutter(args.writer).Put
 	case FormatJSON:
-		putter = newJSONPutter().Put
+		putter = newJSONPutter(args.writer).Put
 	default:
 		err = fmt.Errorf("provided format not supported: %s", args.Format)
 		return
