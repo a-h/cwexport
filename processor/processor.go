@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const interval = time.Minute * 5
+const interval = time.Minute
 
 type MetricPutter func(ctx context.Context, ms []MetricSample) error
 
@@ -62,8 +62,8 @@ func (p Processor) Process(ctx context.Context, startTime time.Time, metric *typ
 	}
 
 	ic := getIntervalCount(startTime, time.Now())
-	if ic > 12 {
-		ic = 12
+	if ic > 120 {
+		ic = 120
 	}
 	for i := 0; i < ic; i++ {
 		start := startTime.Add(time.Duration(i) * interval)

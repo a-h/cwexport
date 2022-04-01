@@ -71,7 +71,7 @@ func main() {
 	lambda.Start(Handle)
 }
 
-var metricStartTime = time.Now().Add(time.Minute * -5)
+var metricStartTime = time.Now().Add(time.Minute * -1)
 
 func Handle(ctx context.Context, event types.MetricStat) (err error) {
 	log.Info("Received event", zap.Any("event", event))
